@@ -1,4 +1,4 @@
-from flask import Blueprint, json , request
+from flask import Blueprint, json , request, make_response
 import models
 from init import db, users_drivers, client
 userBp = Blueprint('userBp', __name__)
@@ -21,23 +21,23 @@ def deleteDb():
     client.drop_database('db')
     db = client.db
     return 'delete and clreated'
-@userBp.route('/addUser/<category>', methods=['POST']) #usage users/addusers/driver/ #body
-def adUser(category):
+@userBp.route('/addUser/', methods=['POST']) #usage users/addusers/driver/ #body
+def adUser():
     userDetails = {
-	'username' : request.form['username'],
-	'password' : request.form['password'],
-  	'category' : request.form['category'],
+	'username' : request.get_json()['username'],
+	'password' : request.get_json()['password'],
+  	'category' : request.get_json()['category'],
         'currentLat': 0.0,
 	'currentLng': 0.0
 	}
-
-    if not db.users_drivers.find({'username': request.form['username']}) or not db.users_operators.find({'username': request.form['username']}):	
-        if category == 'driver':
-	    db.users_drivers.insert_one(userDetails)
-        elif category == 'operator':
-	    db.users_operators.insert_one(userDetails)
-	return {'result': 'new user successfully added'}
-    return {'result':'user with same username already exists'}
+    print(request.get_json())
+    #if not db.users_drivers.find({'username': request.form['username']}) or not db.users_operators.find({'username': request.form['username']}):	
+    if request.get_json()['category'] == 'Driver':
+	db.users_drivers.insert_one(userDetails)
+    #elif category == 'Operator':
+	#db.users_operators.insert_one(userDetails)
+    return {'result': 'new user successfully added'}
+    #return {'result':'user with same username already exists'}
 	
 
 @userBp.route('/deleteUser/<category>', methods=['DELETE'])
@@ -51,15 +51,15 @@ def deleteUser(category):
 	        db.users_operators.delete_one({email:request.form['username']})	
 	else: return {'result': 'user donot exists'}
 
-@userBp.route("/update_current_location/", methods=['POST'])
+@userBp.route("/updateCurrentLocation/", methods=['POST'])
 def update_current_location():
     if request.method == 'POST':
-        if users_drivers.find_one({'username':request.form['username']})!=None:
-            id = users_drivers.find_one({'username':request.form['username']})['_id']
+        if users_drivers.find_one({'username':request.get_json()['username']})!=None:
+            id = users_drivers.find_one({'username':request.get_json()['username']})['_id']
             print(id)
-            users_drivers.find_one_and_update({ 'username': request.form['username'] },
-                                      { '$set': {'lat': request.form['lat'],
-                                                  'lng': request.form['lng'] }
+            users_drivers.find_one_and_update({ 'username': request.get_json()['username'] },
+                                      { '$set': {'currentLat': request.get_json()['currentLat'],
+                                                  'currentLng': request.get_json()['currentLng'] }
                                       }, 
                                        upsert=False)
             return {'result':'location updated'}
@@ -67,17 +67,18 @@ def update_current_location():
             return {'result':'user not found'}
 
 
-@userBp.route("/get_current_location/", methods=['GET'])
-def get_current_location(username):
-    if request.method =='GET':
-        if users_drivers.find_one({'username':request.form['username']})!=None:
-            lat  = users_drivers.find_one({'username':request.form['username']})['lat']
-            lng  = users_drivers.find_one({'username':request.form['username']})['lng']
+@userBp.route("/get_current_location/", methods=['GET','POST'])
+def get_current_location():
+    if request.method =='GET' or request.method =='POST':
+	print(request.get_json()['username'])
+        if users_drivers.find_one({'username':request.get_json()['username']})!=None:
+            lat  = users_drivers.find_one({'username':request.get_json()['username']})['currentLat']
+            lng  = users_drivers.find_one({'username':request.get_json()['username']})['currentLng']
             if lat != 0 and lng != 0:   
                 res = {
                         'lat':lat,
                         'lng':lng,
-                        'username':username
+                        'username':request.get_json()['username']
                       
                         }
                 return make_response(res, 200) 
